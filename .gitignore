@@ -1,0 +1,6 @@
+*.db
+*.db-*
+state/
+.env
+*.env
+.DS_Store
