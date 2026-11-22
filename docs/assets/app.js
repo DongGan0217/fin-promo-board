@@ -12,7 +12,7 @@
   var PAGE = 5, SEARCH_PAGE = 20;
   var SECTORS = ["금융지주", "시중은행", "지방·인터넷", "증권", "생명보험", "손해보험", "저축은행", "카드", "캐피탈", "금고", "금융공기관"];
   var REGIONS = ["서울 강남", "서울 강북", "경기 남부", "경기 북부", "인천", "부산·경남", "대구·경북", "광주·호남", "대전·충청", "강원·제주", "기타"];
-  var D = null, CO = {}, CACHE = {}, PENDING = {}, app = document.getElementById("app");
+  var D = null, CO = {}, CACHE = {}, INFLIGHT = {}, app = document.getElementById("app");
   var S = { season: null, sector: "전체", q: "", field: "all", open: {}, more: {}, br: null, searchMore: 0 };
   var mq = window.matchMedia("(min-width:1024px)");
 
@@ -51,15 +51,15 @@
   function loaded() { return seasons().filter(function (s) { return CACHE[s]; }); }
   function load(s) {
     if (CACHE[s]) return Promise.resolve(CACHE[s]);
-    if (PENDING[s]) return PENDING[s];
+    if (INFLIGHT[s]) return INFLIGHT[s];
     var m = meta(s);
     if (!m) return Promise.reject(new Error("시즌 없음 " + s));
-    PENDING[s] = fetch("data/" + m.file, { cache: "no-cache" }).then(function (r) {
+    INFLIGHT[s] = fetch("data/" + m.file, { cache: "no-cache" }).then(function (r) {
       if (!r.ok) throw new Error("HTTP " + r.status);
       return r.json();
-    }).then(function (d) { CACHE[s] = d.events || []; delete PENDING[s]; return CACHE[s]; },
-      function (e) { delete PENDING[s]; throw e; });
-    return PENDING[s];
+    }).then(function (d) { CACHE[s] = d.events || []; delete INFLIGHT[s]; return CACHE[s]; },
+      function (e) { delete INFLIGHT[s]; throw e; });
+    return INFLIGHT[s];
   }
   function loadSeq(list) { return list.reduce(function (p, s) { return p.then(function () { return load(s); }); }, Promise.resolve()); }
   function people(list) { var s = {}; list.forEach(function (e) { s[e.company + "|" + e.name] = 1; }); return Object.keys(s).length; }
