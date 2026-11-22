@@ -1,4 +1,5 @@
-/* fin-promo-board — 바닐라 JS. data.json(언론 보도 인사만)을 읽어 회사별·최신 발표·인물 검색을 그린다.
+/* fin-promo-board — 바닐라 JS. data/index.json + 시즌별 data/<시즌>.json(언론 보도 인사만, D-20)을 읽어
+   회사별·최신 발표·인물 검색을 그린다. 처음엔 index와 최신 시즌만 받고, 다른 시즌은 고를 때 받아 메모리에 둔다.
    라우트: #/ · #/company/<id>[?s=2026S] · #/latest · #/search[?q=…]  (카톡 링크로 회사 바로 열기) */
 (function () {
   "use strict";
@@ -9,7 +10,9 @@
   var DOW = ["일", "월", "화", "수", "목", "금", "토"];
   var NOTE = "언론 보도 기반 자동 정리 · 생성형 AI 활용 · 정정 요청은 원문 기사 참고";
   var PAGE = 5, SEARCH_PAGE = 20;
-  var D = null, CO = {}, app = document.getElementById("app");
+  var SECTORS = ["금융지주", "시중은행", "지방·인터넷", "증권", "생명보험", "손해보험", "저축은행", "카드", "캐피탈", "금고", "금융공기관"];
+  var REGIONS = ["서울 강남", "서울 강북", "경기 남부", "경기 북부", "인천", "부산·경남", "대구·경북", "광주·호남", "대전·충청", "강원·제주", "기타"];
+  var D = null, CO = {}, CACHE = {}, PENDING = {}, app = document.getElementById("app");
   var S = { season: null, sector: "전체", q: "", field: "all", open: {}, more: {}, br: null, searchMore: 0 };
   var mq = window.matchMedia("(min-width:1024px)");
 
@@ -42,7 +45,23 @@
   function desk() { return mq.matches; }
 
   // ── 데이터 ────────────────────────────────────────────────────────
-  function ev(season) { return D.events.filter(function (e) { return e.season === season; }); }
+  function seasons() { return D.seasons.map(function (x) { return x.season; }); }
+  function meta(s) { return D.seasons.filter(function (x) { return x.season === s; })[0]; }
+  function ev(season) { return CACHE[season] || []; }
+  function loaded() { return seasons().filter(function (s) { return CACHE[s]; }); }
+  function load(s) {
+    if (CACHE[s]) return Promise.resolve(CACHE[s]);
+    if (PENDING[s]) return PENDING[s];
+    var m = meta(s);
+    if (!m) return Promise.reject(new Error("시즌 없음 " + s));
+    PENDING[s] = fetch("data/" + m.file, { cache: "no-cache" }).then(function (r) {
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    }).then(function (d) { CACHE[s] = d.events || []; delete PENDING[s]; return CACHE[s]; },
+      function (e) { delete PENDING[s]; throw e; });
+    return PENDING[s];
+  }
+  function loadSeq(list) { return list.reduce(function (p, s) { return p.then(function () { return load(s); }); }, Promise.resolve()); }
   function people(list) { var s = {}; list.forEach(function (e) { s[e.company + "|" + e.name] = 1; }); return Object.keys(s).length; }
   function byCompany(season) {
     var m = {};
@@ -124,14 +143,14 @@
   }
   function chips(bc) {
     var h = '<div class="a-chips" role="tablist"><button type="button" class="tap' + (S.sector === "전체" ? " on" : "") + '" data-sector="전체">전체</button>';
-    D.sectors.forEach(function (s) {
+    SECTORS.forEach(function (s) {
       var n = sectorCompanies(s).filter(function (c) { return bc[c.id]; }).length;
       h += '<button type="button" class="tap' + (S.sector === s ? " on" : "") + '" data-sector="' + esc(s) + '">' + esc(s) + " <i>" + n + "</i></button>";
     });
     return h + "</div>";
   }
   function listHtml(bc, selId) {
-    var secs = S.sector === "전체" ? D.sectors : [S.sector];
+    var secs = S.sector === "전체" ? SECTORS : [S.sector];
     var h = secs.map(function (s) { return sectorCard(s, bc, selId, S.sector === "전체"); }).join("");
     return h || '<div class="a-card"><div class="a-empty"><b>발표 없음</b><span>이 시즌에 발표된 인사가 없어요</span></div></div>';
   }
@@ -139,7 +158,7 @@
     var bc = byCompany(S.season);
     var h = header(true) + chips(bc);
     if (!desk()) return h + listHtml(bc) + footer();
-    var secs = S.sector === "전체" ? D.sectors : [S.sector], first = null;
+    var secs = S.sector === "전체" ? SECTORS : [S.sector], first = null;
     secs.some(function (s) { return sectorCompanies(s).some(function (c) { if (bc[c.id]) { first = c.id; return true; } }); });
     return h + '<div class="dk-grid"><div>' + listHtml(bc, first) + '</div><div class="dk-detail">' +
       (first ? detailBody(first, bc[first]) : "") + "</div></div>" + footer();
@@ -163,7 +182,7 @@
       '</em><span class="sp"></span>' + ms(open ? "expand_less" : "expand_more") + "</button>";
     if (!open) return h + "</div>";
     var kinds = KINDS.filter(function (k) { return k !== "신규선임" || list.some(function (e) { return e.kind === k; }); });
-    var regs = (D.regions || []).filter(function (r) { return list.some(function (e) { return e.region === r; }); });
+    var regs = REGIONS.filter(function (r) { return list.some(function (e) { return e.region === r; }); });
     var br = S.br && S.br.cid === cid ? S.br : null;
     function cnt(r, k) { return list.filter(function (e) { return (r === "*" || e.region === r) && (k === "*" || e.kind === k); }).length; }
     h += '<div class="b-hint"><span>칸을 누르면 명단</span><span>지역은 지점명 기준 추정</span></div><table class="b-mx"><thead><tr><th>지역</th>' +
@@ -262,14 +281,15 @@
 
   // ── 인물 검색 ────────────────────────────────────────────────────
   function matches(q) {
-    var ql = q.toLowerCase(), r = { nm: [], co: [], ti: [] };
-    D.events.forEach(function (e) {
+    var ql = q.toLowerCase(), r = { nm: [], co: [], ti: [] }, pool = [];
+    loaded().forEach(function (s) { pool = pool.concat(CACHE[s]); });
+    pool.forEach(function (e) {
       if (e.name.toLowerCase().indexOf(ql) >= 0) r.nm.push(e);
       if ((CO[e.company] ? CO[e.company].name : "").toLowerCase().indexOf(ql) >= 0) r.co.push(e);
       if ((e.title + " " + (e.prev_title || "")).toLowerCase().indexOf(ql) >= 0) r.ti.push(e);
     });
     var seen = {}, all = [];
-    r.nm.concat(r.co, r.ti).forEach(function (e) { var k = D.events.indexOf(e); if (!seen[k]) { seen[k] = 1; all.push(e); } });
+    r.nm.concat(r.co, r.ti).forEach(function (e) { var k = pool.indexOf(e); if (!seen[k]) { seen[k] = 1; all.push(e); } });
     r.all = all;
     var srt = function (a, b) { return a.season < b.season ? 1 : a.season > b.season ? -1 : sortEv(a, b); };
     ["nm", "co", "ti", "all"].forEach(function (k) { r[k].sort(srt); });
@@ -283,11 +303,13 @@
     var h = '<div class="a-chips">' + f.map(function (x) {
       return '<button type="button" class="tap' + (S.field === x[0] ? " on" : "") + '" data-field="' + x[0] + '">' + x[1] + " <i>" + r[x[0]].length + "</i></button>";
     }).join("") + "</div>";
-    if (!list.length) return h + '<p class="a-hint">찾는 인물이 없어요</p>';
-    h += '<div class="a-card"><div class="a-st"><b>' + list.length + "건</b><small>" + esc(D.seasons.join(" · ")) + " 전체 시즌</small></div>" +
+    var ld = loaded(), left = seasons().length - ld.length;
+    var allBtn = left ? '<button type="button" class="a-more tap" data-act="sall">' + ms("travel_explore") + "전체 시즌 검색 (" + left + "개 시즌 더)</button>" : "";
+    if (!list.length) return h + '<p class="a-hint">' + esc(ld.join(" · ")) + " 시즌에서 찾는 인물이 없어요</p>" + allBtn;
+    h += '<div class="a-card"><div class="a-st"><b>' + list.length + "건</b><small>" + esc(ld.join(" · ")) + (left ? " 시즌" : " 전체 시즌") + "</small></div>" +
       show.map(function (e) { return row(e, { company: true, season: true, q: q, f: S.field }); }).join("");
     if (list.length > show.length) h += '<button type="button" class="a-more tap" data-act="smore">' + (list.length - show.length) + "건 더 보기" + ms("expand_more") + "</button>";
-    return h + "</div>";
+    return h + allBtn + "</div>";
   }
   function viewSearch() {
     return '<div class="a-hd"><div class="a-br m-only">금융권 인사 보드</div>' + themeBtn(" m-only") + '<div class="a-l1">인물 검색</div></div>' +
@@ -299,10 +321,10 @@
   // ── 시즌 시트 ────────────────────────────────────────────────────
   function openSheet() {
     var h = '<div class="a-scrim" data-act="close"></div><div class="a-sheet" role="dialog" aria-label="시즌 선택"><div class="hd"></div><h4>시즌 선택</h4><p>정기 인사는 1월(W)·7월(S)에 몰려요</p>';
-    D.seasons.forEach(function (s) {
-      var on = s === S.season;
+    seasons().forEach(function (s) {
+      var on = s === S.season, m = meta(s);
       h += '<button type="button" class="a-opt tap' + (on ? " on" : "") + '" data-season="' + esc(s) + '"><div class="tx"><b>' + esc(seasonTitle(s)) + "</b><span>" +
-        esc(s) + " · " + seasonSub(s) + " · " + num(people(ev(s))) + "명</span></div>" + (on ? ms("check_circle", true) : "") + "</button>";
+        esc(s) + " · " + seasonSub(s) + " · " + num(m.count) + "건</span></div>" + (on ? ms("check_circle", true) : "") + "</button>";
     });
     document.getElementById("sheet").innerHTML = h + "</div>";
   }
@@ -332,11 +354,21 @@
   function render() {
     if (!D) return;
     var r = route(), tab = "co", html;
-    if (r.p.s && D.seasons.indexOf(r.p.s) >= 0) S.season = r.p.s;
+    if (r.p.s && seasons().indexOf(r.p.s) >= 0) S.season = r.p.s;
+    if (!CACHE[S.season]) {                                   // 고른 시즌 파일을 아직 안 받았으면 받고 다시 그린다
+      app.innerHTML = '<p class="a-hint">불러오는 중…</p>';
+      load(S.season).then(render, fail);
+      return;
+    }
     if (r.name === "company" && CO[r.id]) {
-      if (!r.p.s && !D.events.some(function (e) { return e.company === r.id && e.season === S.season; })) {
-        var hit = D.seasons.filter(function (s) { return D.events.some(function (e) { return e.company === r.id && e.season === s; }); })[0];
-        if (hit) S.season = hit;
+      var mine = function (s) { return (CACHE[s] || []).some(function (e) { return e.company === r.id; }); };
+      if (!r.p.s && !mine(S.season) && S.hunt !== r.id) {   // 카톡 링크: 이번 시즌에 없으면 다른 시즌을 차례로 받아 찾는다
+        S.hunt = r.id;
+        var rest = seasons().filter(function (s) { return s !== S.season; });
+        loadSeq(rest).then(function () {
+          var hit = rest.filter(mine)[0];
+          if (hit && route().id === r.id) { S.season = hit; render(); }
+        }, function () { /* 못 받으면 현재 시즌 그대로 */ });
       }
       html = viewCompany(r.id);
       document.title = CO[r.id].name + " · 금융권 인사 보드";
@@ -370,6 +402,12 @@
     if (a === "close") return closeSheet();
     if (a === "clear") { S.q = ""; render(); var q = document.getElementById("q"); if (q) q.focus(); return; }
     if (a === "smore") { S.searchMore++; document.getElementById("results").innerHTML = searchResults(); return; }
+    if (a === "sall") {
+      t.disabled = true;
+      t.lastChild.textContent = "다른 시즌 불러오는 중…";
+      loadSeq(seasons()).then(function () { var el = document.getElementById("results"); if (el) el.innerHTML = searchResults(); }, fail);
+      return;
+    }
     if (t.hasAttribute("data-season")) {
       S.season = t.getAttribute("data-season"); S.br = null; closeSheet();
       var r = route();
@@ -415,15 +453,15 @@
   var sysDark = window.matchMedia("(prefers-color-scheme: dark)");
   sysDark.addEventListener ? sysDark.addEventListener("change", render) : sysDark.addListener(render);
 
-  fetch("data.json", { cache: "no-cache" }).then(function (r) {
+  function fail(e) { app.innerHTML = '<p class="a-hint">데이터를 불러오지 못했어요 (' + esc(e && e.message) + ")</p>"; }
+  fetch("data/index.json", { cache: "no-cache" }).then(function (r) {
     if (!r.ok) throw new Error("HTTP " + r.status);
     return r.json();
   }).then(function (d) {
     D = d;
     d.companies.forEach(function (c) { CO[c.id] = c; });
-    S.season = d.default_season || d.seasons[0] || null;
-    render();
-  }).catch(function (e) {
-    app.innerHTML = '<p class="a-hint">데이터를 불러오지 못했어요 (' + esc(e.message) + ")</p>";
-  });
+    S.season = d.seasons.length ? d.seasons[0].season : null;
+    if (!S.season) { app.innerHTML = '<p class="a-hint">아직 공개된 인사가 없어요</p>'; return; }
+    return load(S.season).then(render);
+  }).catch(fail);
 })();
