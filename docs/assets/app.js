@@ -220,7 +220,7 @@
     var h = '<div class="a-l2">' + esc(c.name) + '</div><div class="a-l2s"><span>' + esc(c.sector) + "</span>" +
       (st.last ? "<span>" + md(st.last) + " 발표</span>" : "") + (st.urls ? "<span>원문 기사 " + st.urls + "건</span>" : "") + "</div>";
     if (!list.length) return h + '<div class="a-card"><div class="a-empty"><b>' + esc(seasonTitle(S.season)) + "</b><span>아직 발표 전</span></div></div>";
-    h += '<div class="a-sum"><span class="n">' + people(list) + "명</span>" + kindSum(st.kinds) + "</div>";
+    h += '<div class="a-sum"><span class="cnt">' + people(list) + "명</span>" + kindSum(st.kinds) + "</div>";
     var left = "", empties = [];
     function flush() { if (empties.length) { left += '<div class="a-card"><div class="a-empty"><b>' + esc(empties.join(" · ")) + "</b><span>이번 시즌 발표 없음</span></div></div>"; empties = []; } }
     GROUPS.forEach(function (g) {
