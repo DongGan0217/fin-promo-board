@@ -32,6 +32,15 @@
   }
   function seasonSub(s) { return s && s.slice(4) === "S" ? "3~10월 발표분" : "11~2월 발표분"; }
   function badge(k) { return '<span class="bd ' + (KCLS[k] || "t") + '">' + esc(k) + "</span>"; }
+  // FR-11(v2.1): 내정 = 회색 '내정' 배지 + 내정일, 확정(내정 거친 건) = "MM.DD 내정 → MM.DD 선임"
+  function mmdd(a) { return a ? a.slice(5, 7) + "." + a.slice(8, 10) : ""; }
+  function njBadge(e) { return e.stage === "내정" ? '<span class="bd nj">내정</span>' : ""; }
+  function stageText(e) {
+    if (e.stage === "내정") return mmdd(e.designated_on || e.announced) + " 내정";
+    if (e.designated_on) return "확정 · " + mmdd(e.designated_on) + " 내정" + (e.confirmed_on ? " → " + mmdd(e.confirmed_on) + " 선임" : "");
+    return "";
+  }
+  function stageLine(e) { var t = stageText(e); return t ? '<div class="l2 stg">' + esc(t) + "</div>" : ""; }
   function link(u, cls) {
     return u ? '<a class="lnk' + (cls ? " " + cls : "") + '" href="' + esc(u) + '" target="_blank" rel="noopener noreferrer">원문' + ms("north_east") + "</a>" : "";
   }
@@ -113,9 +122,10 @@
     if (opt.company) l2 += '<div class="l2">' + hl(CO[e.company] ? CO[e.company].name : e.company, opt.f === "co" || opt.f === "all" ? q : "") +
       " · " + esc(e.level) + (opt.season ? " · " + esc(e.season) : "") + "</div>";
     if (e.prev_title) l2 += '<div class="l2">← ' + hl(e.prev_title, opt.f === "ti" || opt.f === "all" ? q : "") + "</div>";
+    l2 += stageLine(e);
     if (e.concurrent) l2 += '<div><span class="dual">지주·은행 겸직</span></div>';
     var nq = opt.f === "nm" || opt.f === "all" ? q : "", tq = opt.f === "ti" || opt.f === "all" ? q : "";
-    return '<div class="a-pr"><div class="tx"><div class="l1"><b>' + hl(e.name, nq) + "</b>" + hl(e.title, tq) + "</div>" + l2 +
+    return '<div class="a-pr"><div class="tx"><div class="l1"><b>' + hl(e.name, nq) + "</b>" + hl(e.title, tq) + njBadge(e) + "</div>" + l2 +
       '</div><div class="rt">' + badge(e.kind) + '<span class="m"><span>' + md(e.announced) + "</span>" + link(e.url) + "</span></div></div>";
   }
 
@@ -211,8 +221,8 @@
     return h + '<div style="height:8px"></div></div>';
   }
   function brRow(e) {
-    var m = (e.prev_title ? "← " + e.prev_title + " · " : "") + md(e.announced);
-    return '<div class="b-r1">' + badge(e.kind) + '<div class="tx"><b>' + esc(e.name) + "</b>" + esc(e.title) + '<span class="m">' + esc(m) + "</span></div>" + link(e.url, "lk") + "</div>";
+    var m = (e.prev_title ? "← " + e.prev_title + " · " : "") + (stageText(e) || md(e.announced));
+    return '<div class="b-r1">' + badge(e.kind) + '<div class="tx"><b>' + esc(e.name) + "</b>" + esc(e.title) + njBadge(e) + '<span class="m">' + esc(m) + "</span></div>" + link(e.url, "lk") + "</div>";
   }
   function detailBody(cid, list) {
     var c = CO[cid], st = stats(list || []);
@@ -273,7 +283,7 @@
         esc(c.name) + "</b><span>" + esc(c.sector) + '</span></div><span class="ct">' + people(list) + "<small>명</small></span></div>" +
         '<div class="a-fb">' + KINDS.filter(function (x) { return st.kinds[x]; }).map(function (x) { return "<span>" + badge(x) + st.kinds[x] + "</span>"; }).join("") + "</div>" +
         list.slice(0, 2).map(function (e) {
-          return '<div class="a-fp"><b>' + esc(e.name) + "</b><span>" + esc(e.title) + '</span><span class="o">' + (e.prev_title ? "← " + esc(e.prev_title) : "") + "</span>" + badge(e.kind) + "</div>";
+          return '<div class="a-fp"><b>' + esc(e.name) + "</b><span>" + esc(e.title) + "</span>" + njBadge(e) + '<span class="o">' + (e.prev_title ? "← " + esc(e.prev_title) : "") + "</span>" + badge(e.kind) + "</div>";
         }).join("") + "</a>";
     });
     return h + footer();

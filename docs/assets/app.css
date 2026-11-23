@@ -16,6 +16,9 @@ a{color:inherit;text-decoration:none}
 .ms.f{font-variation-settings:'FILL' 1,'wght' 500,'opsz' 24}
 .bd{flex:none;display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:6px;font-size:12px;font-weight:600;line-height:1;white-space:nowrap}
 .bd.p{background:var(--bP);color:var(--bPi)}.bd.n{background:var(--bN);color:var(--bNi)}.bd.t{background:var(--bT);color:var(--bTi)}
+/* FR-11 내정 배지: TDS 회색 토큰(chip) — 직위 옆 인라인 */
+.bd.nj{background:var(--chip);color:var(--chipInk);margin-left:6px;vertical-align:1px;height:20px;padding:0 6px}
+.a-pr .l2.stg{color:var(--metaC)}
 .fn{font-size:12px;line-height:1.5;color:var(--metaC);text-align:center;padding:20px 24px 24px}
 .lnk{color:var(--accent);font-weight:600;display:inline-flex;align-items:center;gap:1px}
 .lnk .ms{font-size:14px}
