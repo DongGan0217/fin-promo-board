@@ -1,6 +1,6 @@
 /* fin-promo-board — 바닐라 JS. data/index.json + 시즌별 data/<시즌>.json(언론 보도 인사만, D-20)을 읽어
    회사별·최신 발표·인물 검색을 그린다. 처음엔 index와 최신 시즌만 받고, 다른 시즌은 고를 때 받아 메모리에 둔다.
-   라우트: #/ · #/company/<id>[?s=2026S] · #/latest · #/search[?q=…]  (카톡 링크로 회사 바로 열기) */
+   라우트: #/·#/latest(첫 화면 = 최신 발표, FR-8a) · #/companies · #/company/<id>[?s=2026S] · #/search[?q=…]  (카톡 링크로 회사 바로 열기) */
 (function () {
   "use strict";
   var LEVELS = ["CEO", "임원", "본부장", "부서장", "지점장"];
@@ -252,7 +252,7 @@
       if (S.sector !== "전체" && S.sector !== sec) S.sector = sec;
       return header(true) + chips(bc) + '<div class="dk-grid"><div>' + listHtml(bc, cid) + '</div><div class="dk-detail">' + detailBody(cid, bc[cid]) + "</div></div>" + footer();
     }
-    return '<div class="a-top"><a class="bk tap" href="#/" aria-label="뒤로">' + ms("arrow_back") + '</a><span class="sp"></span>' + themeBtn() +
+    return '<div class="a-top"><a class="bk tap" href="#/companies" aria-label="뒤로">' + ms("arrow_back") + '</a><span class="sp"></span>' + themeBtn() +
       '</div><div class="a-hd" style="padding-top:0">' + seasonBtn() + "</div>" + detailBody(cid, bc[cid]) + footer();
   }
 
@@ -382,12 +382,12 @@
       }
       html = viewCompany(r.id);
       document.title = CO[r.id].name + " · 금융권 인사 보드";
-    } else if (r.name === "latest") { tab = "latest"; html = viewLatest(); document.title = "최신 발표 · 금융권 인사 보드"; }
+    } else if (r.name === "companies") { html = viewCompanies(); document.title = "금융권 인사 보드"; }
     else if (r.name === "search") {
       tab = "search";
       if (r.p.q !== undefined && r.p.q !== S.q) S.q = r.p.q;
       html = viewSearch(); document.title = "인물 검색 · 금융권 인사 보드";
-    } else { html = viewCompanies(); document.title = "금융권 인사 보드"; }
+    } else { tab = "latest"; html = viewLatest(); document.title = "최신 발표 · 금융권 인사 보드"; }   // #/latest·#/·빈 해시 = 첫 화면(FR-8a)
     app.className = tab === "co" ? "" : "narrow";
     app.innerHTML = html;
     [].forEach.call(document.querySelectorAll("[data-tab]"), function (a) {
@@ -426,7 +426,7 @@
     }
     if (t.hasAttribute("data-sector")) {
       S.sector = t.getAttribute("data-sector");
-      if (route().name === "company") location.hash = "#/"; else rerenderKeepScroll();
+      if (route().name === "company") location.hash = "#/companies"; else rerenderKeepScroll();
       return;
     }
     if (t.hasAttribute("data-open")) {
