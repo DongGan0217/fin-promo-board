@@ -53,9 +53,14 @@
   }
   function desk() { return mq.matches; }
   function nb(x) { return '<span class="num">' + x + "</span>"; }   // FR-12 R2: 숫자 = tabular-nums
-  // FR-12 R5: 상태 컴포넌트 — 빈 상태(공통) · 로딩(Skeleton shimmer) · 오류(red500 + 원인 1줄 + [다시 시도])
+  // FR-12 R5: 상태 컴포넌트 — 빈 상태 · 로딩(Skeleton shimmer) · 오류(red500 + 원인 1줄 + [다시 시도] weak, S21 D-T7=A)
+  // 목록 안 부분 빈 행(예: 회사 상세의 '본부장 · 부서장 — 이번 시즌 발표 없음')은 카드 안 .a-empty 그대로
   function empty(title, desc) {
     return '<div class="a-card"><div class="a-empty"><b>' + esc(title) + "</b><span>" + esc(desc) + "</span></div></div>";
+  }
+  // S21 D-T7=A: 화면 전체 빈 상태 = 사업공고 보드 .st.st-empty(카드 밖 · 큰 아이콘 + 제목 + 안내 1줄 + 필요 시 weak 버튼)
+  function emptyState(title, desc, icon, btn) {
+    return '<div class="st st-empty">' + ms(icon || "inbox") + "<b>" + esc(title) + "</b><p>" + esc(desc) + "</p>" + (btn || "") + "</div>";
   }
   function skeleton() {
     var r = '<div class="sk-row"><span class="sk sk-av"></span><span class="sk-tx"><span class="sk sk-l1"></span><span class="sk sk-l2"></span></span></div>';
@@ -71,8 +76,8 @@
     return "잠시 후 다시 시도해 주세요";
   }
   function errorState(e) {
-    return '<div class="a-card st-err" role="alert">' + ms("error", true) + "<b>데이터를 불러오지 못했어요</b><span>" +
-      esc(errorText(e)) + '</span><button type="button" class="wbtn tap" data-act="retry">다시 시도</button></div>';
+    return '<div class="st st-error" role="alert">' + ms("error", true) + "<b>데이터를 불러오지 못했어요</b><p>" + esc(errorText(e)) + "</p>" +
+      '<button type="button" class="btn-weak tap" data-act="retry">' + ms("refresh") + "다시 시도</button></div>";
   }
 
   // ── 데이터 ────────────────────────────────────────────────────────
@@ -184,7 +189,7 @@
   function listHtml(bc, selId) {
     var secs = S.sector === "전체" ? SECTORS : [S.sector];
     var h = secs.map(function (s) { return sectorCard(s, bc, selId, S.sector === "전체"); }).join("");
-    return h || empty("발표 없음", "이 시즌에 발표된 인사가 없어요");
+    return h || emptyState("발표 없음", "이 시즌에 발표된 인사가 없어요");
   }
   function viewCompanies() {
     var bc = byCompany(S.season);
@@ -252,7 +257,7 @@
     list = (list || []).slice().sort(sortEv);
     var h = '<div class="a-l2">' + esc(c.name) + '</div><div class="a-l2s"><span>' + esc(c.sector) + "</span>" +
       (st.last ? '<span class="num">' + md(st.last) + " 발표</span>" : "") + (st.urls ? '<span class="num">원문 기사 ' + st.urls + "건</span>" : "") + "</div>";
-    if (!list.length) return h + empty(seasonTitle(S.season), "아직 발표 전");
+    if (!list.length) return h + emptyState("아직 발표 전", "이 시즌에 발표된 인사가 없어요");
     h += '<div class="a-sum"><span class="cnt">' + people(list) + "명</span>" + kindSum(st.kinds) + "</div>";
     var left = "", empties = [];
     function flush() { if (empties.length) { left += empty(empties.join(" · "), "이번 시즌 발표 없음"); empties = []; } }
@@ -298,7 +303,7 @@
     });
     var h = header(false) + '<div class="a-l2 lt">최신 발표</div><div class="a-l2s"><span>발표일 최신순</span></div>';
     var cur = null;
-    if (!keys.length) h += empty("발표 없음", "이 시즌에 발표된 인사가 없어요");
+    if (!keys.length) h += emptyState("발표 없음", "이 시즌에 발표된 인사가 없어요");
     keys.forEach(function (k) {
       var d = k.split("|")[0], cid = k.split("|")[1], list = groups[k].slice().sort(sortEv), st = stats(list), c = CO[cid] || { name: cid, sector: "" };
       if (d !== cur) { cur = d; h += '<div class="a-dt num">' + esc(dateLabel(d)) + "</div>"; }
@@ -338,7 +343,10 @@
     }).join("") + "</div>";
     var ld = loaded(), left = seasons().length - ld.length;
     var allBtn = left ? '<div class="fcta"><button type="button" class="tap" data-act="sall">전체 시즌에서 찾기</button></div>' : "";   // FR-12 R6
-    if (!list.length) return h + empty("검색 결과 없음", ld.join(" · ") + " 시즌에서 찾는 인물이 없어요") + allBtn;
+    if (!list.length) {                                       // 필드 칩으로 0건이면 [필터 해제] weak, 전체 시즌은 FixedBottomCTA 그대로
+      var rst = S.field !== "all" && r.all.length ? '<button type="button" class="btn-weak tap" data-field="all">' + ms("filter_alt_off") + "필터 해제</button>" : "";
+      return h + emptyState("검색 결과 없음", ld.join(" · ") + " 시즌에서 찾는 인물이 없어요", "search", rst) + allBtn;
+    }
     h += '<div class="a-card"><div class="a-st"><b class="num">' + list.length + '건</b><small class="num">' + esc(ld.join(" · ")) + (left ? " 시즌" : " 전체 시즌") + "</small></div>" +
       show.map(function (e) { return row(e, { company: true, season: true, q: q, f: S.field }); }).join("");
     if (list.length > show.length) h += '<button type="button" class="a-more tap" data-act="smore">' + nb((list.length - show.length) + "건 더 보기") + ms("expand_more") + "</button>";
@@ -500,7 +508,7 @@
       D = d;
       d.companies.forEach(function (c) { CO[c.id] = c; });
       S.season = d.seasons.length ? d.seasons[0].season : null;
-      if (!S.season) { app.innerHTML = empty("공개된 인사 없음", "아직 공개된 인사가 없어요"); return; }
+      if (!S.season) { app.innerHTML = emptyState("공개된 인사 없음", "아직 공개된 인사가 없어요"); return; }
       return load(S.season).then(render);
     }).catch(fail);
   }
