@@ -1,7 +1,7 @@
 {
-"generated_at":"2026-12-04T09:00+09:00",
+"generated_at":"2026-12-04T23:00+09:00",
 "companies":[{"id":"woori_fg","name":"우리금융","sector":"금융지주"},{"id":"woori_bank","name":"우리은행","sector":"시중은행"},{"id":"nh_bank","name":"NH농협은행","sector":"시중은행"}],
 "seasons":[
-{"season":"2026W","file":"2026W.json","count":251,"updated":"2026-12-04T09:00+09:00"}
+{"season":"2026W","file":"2026W.json","count":1,"updated":"2026-12-04T23:00+09:00"}
 ]
 }
