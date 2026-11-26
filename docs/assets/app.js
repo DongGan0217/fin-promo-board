@@ -52,6 +52,22 @@
     return esc(text.slice(0, i)) + '<span class="hl">' + esc(text.slice(i, i + q.length)) + "</span>" + esc(text.slice(i + q.length));
   }
   function desk() { return mq.matches; }
+  function nb(x) { return '<span class="num">' + x + "</span>"; }   // FR-12 R2: 숫자 = tabular-nums
+  // FR-12 R5: 상태 컴포넌트 — 빈 상태(공통) · 로딩(Skeleton shimmer) · 오류(red500 + 원인 1줄 + [다시 시도])
+  function empty(title, desc) {
+    return '<div class="a-card"><div class="a-empty"><b>' + esc(title) + "</b><span>" + esc(desc) + "</span></div></div>";
+  }
+  function skeleton() {
+    var r = '<div class="sk-row"><span class="sk sk-av"></span><span class="sk-tx"><span class="sk sk-l1"></span><span class="sk sk-l2"></span></span></div>';
+    return '<div aria-busy="true"><span class="sr">불러오는 중</span><div class="sk sk-title"></div><div class="a-card">' + r + r + r + r +
+      '</div><div class="a-card">' + r + r + r + "</div></div>";
+  }
+  function errorState(msg) {
+    msg = String(msg || "");
+    msg = /^HTTP \d+/.test(msg) ? "서버 응답 오류 (" + msg + ")" : "네트워크 연결을 확인해 주세요" + (msg ? " (" + msg + ")" : "");
+    return '<div class="a-card st-err" role="alert">' + ms("error", true) + "<b>데이터를 불러오지 못했어요</b><span>" +
+      esc(msg) + '</span><button type="button" class="wbtn tap" data-act="retry">다시 시도</button></div>';
+  }
 
   // ── 데이터 ────────────────────────────────────────────────────────
   function seasons() { return D.seasons.map(function (x) { return x.season; }); }
@@ -91,7 +107,7 @@
       (a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
   }
   function kindSum(k) {
-    return KINDS.filter(function (x) { return k[x]; }).map(function (x) { return badge(x) + '<span class="g">' + k[x] + "</span>"; }).join("");
+    return KINDS.filter(function (x) { return k[x]; }).map(function (x) { return badge(x) + '<span class="g num">' + k[x] + "</span>"; }).join("");
   }
 
   // ── 공통 조각 ────────────────────────────────────────────────────
@@ -106,14 +122,14 @@
     var h = '<div class="a-hd">' + (brand !== false ? '<div class="a-br m-only">금융권 인사 보드</div>' : "") + themeBtn(" m-only") + seasonBtn();
     if (withSummary) {
       var bc = byCompany(S.season), n = Object.keys(bc).length;
-      h += '<div class="a-l1c"><span>' + esc(S.season) + "</span><span>" + D.companies.length + "개사 중 " + n + "개사 발표</span><span>" +
+      h += '<div class="a-l1c num"><span>' + esc(S.season) + "</span><span>" + D.companies.length + "개사 중 " + n + "개사 발표</span><span>" +
         num(people(ev(S.season))) + "명</span></div>";
     }
     return h + "</div>";
   }
   function footer() {
     var ts = D.generated_at ? D.generated_at.slice(0, 16).replace("T", " ").replace(/-/g, ".") : "";
-    return '<div class="fn">' + NOTE + (ts ? "<br>데이터 기준 " + esc(ts) : "") + "</div>";
+    return '<div class="fn">' + NOTE + (ts ? "<br>데이터 기준 " + nb(esc(ts)) : "") + "</div>";
   }
   function row(e, opt) {
     opt = opt || {};
@@ -125,29 +141,29 @@
     l2 += stageLine(e);
     if (e.concurrent) l2 += '<div><span class="dual">지주·은행 겸직</span></div>';
     var nq = opt.f === "nm" || opt.f === "all" ? q : "", tq = opt.f === "ti" || opt.f === "all" ? q : "";
-    return '<div class="a-pr"><div class="tx"><div class="l1"><b>' + hl(e.name, nq) + "</b>" + hl(e.title, tq) + njBadge(e) + "</div>" + l2 +
-      '</div><div class="rt">' + badge(e.kind) + '<span class="m"><span>' + md(e.announced) + "</span>" + link(e.url) + "</span></div></div>";
+    return '<div class="lr a-pr"><span class="lr-left">' + badge(e.kind) + '</span><div class="lr-contents tx"><div class="l1"><b>' + hl(e.name, nq) + "</b>" + hl(e.title, tq) + njBadge(e) + "</div>" + l2 +
+      '</div><div class="lr-right"><span class="m"><span class="num">' + md(e.announced) + "</span>" + link(e.url) + "</span></div></div>";
   }
 
   // ── 회사별 ───────────────────────────────────────────────────────
   function sectorCompanies(sector) { return D.companies.filter(function (c) { return c.sector === sector; }); }
   function companyItem(c, list, sel) {
     if (!list) {
-      return '<div class="a-co off"><span class="a-av">' + esc(c.name.charAt(0)) + '</span><div class="tx"><b>' + esc(c.name) +
+      return '<div class="lr a-co off"><span class="lr-left a-av">' + esc(c.name.charAt(0)) + '</span><div class="lr-contents tx"><b>' + esc(c.name) +
         "</b><span>아직 발표 전</span></div></div>";
     }
     var st = stats(list);
-    return '<a class="a-co tap' + (sel ? " sel" : "") + '" href="#/company/' + encodeURIComponent(c.id) + '"><span class="a-av">' + esc(c.name.charAt(0)) +
-      '</span><div class="tx"><b>' + esc(c.name) + "</b><span>" + (st.last ? md(st.last) + " 발표" : "발표") + '</span></div><span class="ct">' +
-      people(list) + "<small>명</small></span>" + (desk() ? "" : ms("chevron_right")) + "</a>";
+    return '<a class="lr a-co tap' + (sel ? " sel" : "") + '" href="#/company/' + encodeURIComponent(c.id) + '"><span class="lr-left a-av">' + esc(c.name.charAt(0)) +
+      '</span><div class="lr-contents tx"><b>' + esc(c.name) + '</b><span class="num">' + (st.last ? md(st.last) + " 발표" : "발표") + '</span></div><div class="lr-right"><span class="ct num">' +
+      people(list) + "<small>명</small></span>" + (desk() ? "" : ms("chevron_right")) + "</div></a>";
   }
   function sectorCard(sector, bc, selId, all) {
     var cos = sectorCompanies(sector), on = cos.filter(function (c) { return bc[c.id]; });
     if (all && !on.length) return "";
-    var h = '<div class="a-card"><div class="a-st"><b>' + esc(sector) + "</b><small>" + cos.length + "개사 중 " + on.length + "개사 발표</small></div>";
+    var h = '<div class="a-card"><div class="a-st"><b>' + esc(sector) + "</b><small class=\"num\">" + cos.length + "개사 중 " + on.length + "개사 발표</small></div>";
     cos.forEach(function (c) { if (bc[c.id]) h += companyItem(c, bc[c.id], c.id === selId); });
     if (all) {
-      if (cos.length > on.length) h += '<div class="a-offs">발표 전 ' + (cos.length - on.length) + "개사</div>";
+      if (cos.length > on.length) h += '<div class="a-offs num">발표 전 ' + (cos.length - on.length) + "개사</div>";
     } else cos.forEach(function (c) { if (!bc[c.id]) h += companyItem(c, null); });
     return h + "</div>";
   }
@@ -155,14 +171,14 @@
     var h = '<div class="a-chips" role="tablist"><button type="button" class="tap' + (S.sector === "전체" ? " on" : "") + '" data-sector="전체">전체</button>';
     SECTORS.forEach(function (s) {
       var n = sectorCompanies(s).filter(function (c) { return bc[c.id]; }).length;
-      h += '<button type="button" class="tap' + (S.sector === s ? " on" : "") + '" data-sector="' + esc(s) + '">' + esc(s) + " <i>" + n + "</i></button>";
+      h += '<button type="button" class="tap' + (S.sector === s ? " on" : "") + '" data-sector="' + esc(s) + '">' + esc(s) + ' <i class="num">' + n + "</i></button>";
     });
     return h + "</div>";
   }
   function listHtml(bc, selId) {
     var secs = S.sector === "전체" ? SECTORS : [S.sector];
     var h = secs.map(function (s) { return sectorCard(s, bc, selId, S.sector === "전체"); }).join("");
-    return h || '<div class="a-card"><div class="a-empty"><b>발표 없음</b><span>이 시즌에 발표된 인사가 없어요</span></div></div>';
+    return h || empty("발표 없음", "이 시즌에 발표된 인사가 없어요");
   }
   function viewCompanies() {
     var bc = byCompany(S.season);
@@ -178,24 +194,24 @@
   function groupCard(g, list, cid) {
     var key = cid + "|" + g.label, open = S.open[key] !== false, more = S.more[key];
     var h = '<div class="a-card"><button type="button" class="a-st" data-open="' + esc(key) + '" aria-expanded="' + open + '"><b>' + esc(g.label) +
-      "</b><em>" + list.length + '</em><span class="sp"></span>' + ms(open ? "expand_less" : "expand_more") + "</button>";
+      "</b><em class=\"num\">" + list.length + '</em><span class="sp"></span>' + ms(open ? "expand_less" : "expand_more") + "</button>";
     if (open) {
       var show = more ? list : list.slice(0, PAGE);
       h += show.map(function (e) { return row(e); }).join("");
-      if (list.length > show.length) h += '<button type="button" class="a-more tap" data-more="' + esc(key) + '">' + (list.length - show.length) + "명 더 보기" + ms("expand_more") + "</button>";
+      if (list.length > show.length) h += '<button type="button" class="a-more tap" data-more="' + esc(key) + '">' + nb((list.length - show.length) + "명 더 보기") + ms("expand_more") + "</button>";
     }
     return h + "</div>";
   }
   function branchCard(list, cid) {
     var key = cid + "|지점장", def = desk(), open = S.open[key] === undefined ? def : S.open[key];
-    var h = '<div class="a-card"><button type="button" class="a-st" data-open="' + esc(key) + '" aria-expanded="' + open + '"><b>지점장</b><em>' + list.length +
+    var h = '<div class="a-card"><button type="button" class="a-st" data-open="' + esc(key) + '" aria-expanded="' + open + '"><b>지점장</b><em class="num">' + list.length +
       '</em><span class="sp"></span>' + ms(open ? "expand_less" : "expand_more") + "</button>";
     if (!open) return h + "</div>";
     var kinds = KINDS.filter(function (k) { return k !== "신규선임" || list.some(function (e) { return e.kind === k; }); });
     var regs = REGIONS.filter(function (r) { return list.some(function (e) { return e.region === r; }); });
     var br = S.br && S.br.cid === cid ? S.br : null;
     function cnt(r, k) { return list.filter(function (e) { return (r === "*" || e.region === r) && (k === "*" || e.kind === k); }).length; }
-    h += '<div class="b-hint"><span>칸을 누르면 명단</span><span>지역은 지점명 기준 추정</span></div><table class="b-mx"><thead><tr><th>지역</th>' +
+    h += '<div class="b-hint"><span>칸을 누르면 명단</span><span>지역은 지점명 기준 추정</span></div><table class="b-mx num"><thead><tr><th>지역</th>' +
       kinds.map(function (k) { return "<th>" + esc(k) + "</th>"; }).join("") + "<th>계</th></tr></thead><tbody>";
     regs.forEach(function (r) {
       var rowOn = br && br.r === r && br.k === "*";
@@ -211,28 +227,29 @@
       var pick = list.filter(function (e) { return (br.r === "*" || e.region === br.r) && (br.k === "*" || e.kind === br.k); })
         .sort(function (a, b) { return a.title < b.title ? -1 : a.title > b.title ? 1 : 0; });
       var label = (br.r === "*" ? "전체 지역" : br.r) + (br.k === "*" ? "" : " · " + br.k);
-      h += '<div class="b-flt"><button type="button" class="tap" data-br="">' + esc(label) + " " + pick.length + ms("close") + "</button></div>";
-      h += '<div class="b-gl">' + esc(label) + " <em>" + pick.length + "</em></div>" + pick.map(brRow).join("");
+      h += '<div class="b-flt"><button type="button" class="tap" data-br="">' + nb(esc(label) + " " + pick.length) + ms("close") + "</button></div>";
+      h += '<div class="b-gl">' + esc(label) + ' <em class="num">' + pick.length + "</em></div>" + pick.map(brRow).join("");
       if (br.r !== "*" && br.k !== "*") {
         var rest = list.filter(function (e) { return e.region === br.r && e.kind !== br.k; });
-        if (rest.length) h += '<div class="b-gl">같은 지역 다른 구분 <em>' + rest.length + "</em></div>" + rest.map(brRow).join("");
+        if (rest.length) h += '<div class="b-gl">같은 지역 다른 구분 <em class="num">' + rest.length + "</em></div>" + rest.map(brRow).join("");
       }
     }
-    return h + '<div style="height:8px"></div></div>';
+    return h + '<div class="sp8"></div></div>';
   }
   function brRow(e) {
     var m = (e.prev_title ? "← " + e.prev_title + " · " : "") + (stageText(e) || md(e.announced));
-    return '<div class="b-r1">' + badge(e.kind) + '<div class="tx"><b>' + esc(e.name) + "</b>" + esc(e.title) + njBadge(e) + '<span class="m">' + esc(m) + "</span></div>" + link(e.url, "lk") + "</div>";
+    return '<div class="lr b-r1"><span class="lr-left">' + badge(e.kind) + '</span><div class="lr-contents tx"><b>' + esc(e.name) + "</b>" + esc(e.title) + njBadge(e) + '<span class="m num">' + esc(m) + "</span></div>" +
+      (e.url ? '<span class="lr-right">' + link(e.url, "lk") + "</span>" : "") + "</div>";
   }
   function detailBody(cid, list) {
     var c = CO[cid], st = stats(list || []);
     list = (list || []).slice().sort(sortEv);
     var h = '<div class="a-l2">' + esc(c.name) + '</div><div class="a-l2s"><span>' + esc(c.sector) + "</span>" +
-      (st.last ? "<span>" + md(st.last) + " 발표</span>" : "") + (st.urls ? "<span>원문 기사 " + st.urls + "건</span>" : "") + "</div>";
-    if (!list.length) return h + '<div class="a-card"><div class="a-empty"><b>' + esc(seasonTitle(S.season)) + "</b><span>아직 발표 전</span></div></div>";
+      (st.last ? '<span class="num">' + md(st.last) + " 발표</span>" : "") + (st.urls ? '<span class="num">원문 기사 ' + st.urls + "건</span>" : "") + "</div>";
+    if (!list.length) return h + empty(seasonTitle(S.season), "아직 발표 전");
     h += '<div class="a-sum"><span class="cnt">' + people(list) + "명</span>" + kindSum(st.kinds) + "</div>";
     var left = "", empties = [];
-    function flush() { if (empties.length) { left += '<div class="a-card"><div class="a-empty"><b>' + esc(empties.join(" · ")) + "</b><span>이번 시즌 발표 없음</span></div></div>"; empties = []; } }
+    function flush() { if (empties.length) { left += empty(empties.join(" · "), "이번 시즌 발표 없음"); empties = []; } }
     GROUPS.forEach(function (g) {
       var gl = list.filter(function (e) { return g.lv.indexOf(e.level) >= 0; });
       if (!gl.length) { empties.push(g.label); return; }
@@ -253,7 +270,7 @@
       return header(true) + chips(bc) + '<div class="dk-grid"><div>' + listHtml(bc, cid) + '</div><div class="dk-detail">' + detailBody(cid, bc[cid]) + "</div></div>" + footer();
     }
     return '<div class="a-top"><a class="bk tap" href="#/companies" aria-label="뒤로">' + ms("arrow_back") + '</a><span class="sp"></span>' + themeBtn() +
-      '</div><div class="a-hd" style="padding-top:0">' + seasonBtn() + "</div>" + detailBody(cid, bc[cid]) + footer();
+      '</div><div class="a-hd top0">' + seasonBtn() + "</div>" + detailBody(cid, bc[cid]) + footer();
   }
 
   // ── 최신 발표 ────────────────────────────────────────────────────
@@ -273,15 +290,15 @@
       if (da !== db) return !da ? 1 : !db ? -1 : da < db ? 1 : -1;
       return people(groups[b]) - people(groups[a]);
     });
-    var h = header(false) + '<div class="a-l2" style="padding-top:0;font-size:18px;font-weight:600">최신 발표</div><div class="a-l2s"><span>발표일 최신순</span></div>';
+    var h = header(false) + '<div class="a-l2 lt">최신 발표</div><div class="a-l2s"><span>발표일 최신순</span></div>';
     var cur = null;
-    if (!keys.length) h += '<p class="a-hint">이 시즌에 발표된 인사가 없어요</p>';
+    if (!keys.length) h += empty("발표 없음", "이 시즌에 발표된 인사가 없어요");
     keys.forEach(function (k) {
       var d = k.split("|")[0], cid = k.split("|")[1], list = groups[k].slice().sort(sortEv), st = stats(list), c = CO[cid] || { name: cid, sector: "" };
-      if (d !== cur) { cur = d; h += '<div class="a-dt">' + esc(dateLabel(d)) + "</div>"; }
+      if (d !== cur) { cur = d; h += '<div class="a-dt num">' + esc(dateLabel(d)) + "</div>"; }
       h += '<a class="a-card a-fc tap" href="#/company/' + encodeURIComponent(cid) + '"><div class="a-fh"><span class="a-av">' + esc(c.name.charAt(0)) + '</span><div class="tx"><b>' +
-        esc(c.name) + "</b><span>" + esc(c.sector) + '</span></div><span class="ct">' + people(list) + "<small>명</small></span></div>" +
-        '<div class="a-fb">' + KINDS.filter(function (x) { return st.kinds[x]; }).map(function (x) { return "<span>" + badge(x) + st.kinds[x] + "</span>"; }).join("") + "</div>" +
+        esc(c.name) + "</b><span>" + esc(c.sector) + '</span></div><span class="ct num">' + people(list) + "<small>명</small></span></div>" +
+        '<div class="a-fb">' + KINDS.filter(function (x) { return st.kinds[x]; }).map(function (x) { return '<span class="num">' + badge(x) + st.kinds[x] + "</span>"; }).join("") + "</div>" +
         list.slice(0, 2).map(function (e) {
           return '<div class="a-fp"><b>' + esc(e.name) + "</b><span>" + esc(e.title) + "</span>" + njBadge(e) + '<span class="o">' + (e.prev_title ? "← " + esc(e.prev_title) : "") + "</span>" + badge(e.kind) + "</div>";
         }).join("") + "</a>";
@@ -311,15 +328,15 @@
     var r = matches(q), list = r[S.field], show = list.slice(0, SEARCH_PAGE * (1 + S.searchMore));
     var f = [["all", "전체"], ["nm", "이름"], ["co", "회사"], ["ti", "직위"]];
     var h = '<div class="a-chips">' + f.map(function (x) {
-      return '<button type="button" class="tap' + (S.field === x[0] ? " on" : "") + '" data-field="' + x[0] + '">' + x[1] + " <i>" + r[x[0]].length + "</i></button>";
+      return '<button type="button" class="tap' + (S.field === x[0] ? " on" : "") + '" data-field="' + x[0] + '">' + x[1] + ' <i class="num">' + r[x[0]].length + "</i></button>";
     }).join("") + "</div>";
     var ld = loaded(), left = seasons().length - ld.length;
-    var allBtn = left ? '<button type="button" class="a-more tap" data-act="sall">' + ms("travel_explore") + "전체 시즌 검색 (" + left + "개 시즌 더)</button>" : "";
-    if (!list.length) return h + '<p class="a-hint">' + esc(ld.join(" · ")) + " 시즌에서 찾는 인물이 없어요</p>" + allBtn;
-    h += '<div class="a-card"><div class="a-st"><b>' + list.length + "건</b><small>" + esc(ld.join(" · ")) + (left ? " 시즌" : " 전체 시즌") + "</small></div>" +
+    var allBtn = left ? '<div class="fcta"><button type="button" class="tap" data-act="sall">전체 시즌에서 찾기</button></div>' : "";   // FR-12 R6
+    if (!list.length) return h + empty("검색 결과 없음", ld.join(" · ") + " 시즌에서 찾는 인물이 없어요") + allBtn;
+    h += '<div class="a-card"><div class="a-st"><b class="num">' + list.length + '건</b><small class="num">' + esc(ld.join(" · ")) + (left ? " 시즌" : " 전체 시즌") + "</small></div>" +
       show.map(function (e) { return row(e, { company: true, season: true, q: q, f: S.field }); }).join("");
-    if (list.length > show.length) h += '<button type="button" class="a-more tap" data-act="smore">' + (list.length - show.length) + "건 더 보기" + ms("expand_more") + "</button>";
-    return h + allBtn + "</div>";
+    if (list.length > show.length) h += '<button type="button" class="a-more tap" data-act="smore">' + nb((list.length - show.length) + "건 더 보기") + ms("expand_more") + "</button>";
+    return h + "</div>" + allBtn;
   }
   function viewSearch() {
     return '<div class="a-hd"><div class="a-br m-only">금융권 인사 보드</div>' + themeBtn(" m-only") + '<div class="a-l1">인물 검색</div></div>' +
@@ -334,7 +351,7 @@
     seasons().forEach(function (s) {
       var on = s === S.season, m = meta(s);
       h += '<button type="button" class="a-opt tap' + (on ? " on" : "") + '" data-season="' + esc(s) + '"><div class="tx"><b>' + esc(seasonTitle(s)) + "</b><span>" +
-        esc(s) + " · " + seasonSub(s) + " · " + num(m.count) + "건</span></div>" + (on ? ms("check_circle", true) : "") + "</button>";
+        nb(esc(s) + " · " + seasonSub(s) + " · " + num(m.count) + "건") + "</span></div>" + (on ? ms("check_circle", true) : "") + "</button>";
     });
     document.getElementById("sheet").innerHTML = h + "</div>";
   }
@@ -366,7 +383,7 @@
     var r = route(), tab = "co", html;
     if (r.p.s && seasons().indexOf(r.p.s) >= 0) S.season = r.p.s;
     if (!CACHE[S.season]) {                                   // 고른 시즌 파일을 아직 안 받았으면 받고 다시 그린다
-      app.innerHTML = '<p class="a-hint">불러오는 중…</p>';
+      app.innerHTML = skeleton();
       load(S.season).then(render, fail);
       return;
     }
@@ -409,6 +426,7 @@
     var a = t.getAttribute("data-act");
     if (a === "theme") return toggleTheme();
     if (a === "season") return openSheet();
+    if (a === "retry") { if (D) render(); else boot(); return; }
     if (a === "close") return closeSheet();
     if (a === "clear") { S.q = ""; render(); var q = document.getElementById("q"); if (q) q.focus(); return; }
     if (a === "smore") { S.searchMore++; document.getElementById("results").innerHTML = searchResults(); return; }
@@ -463,15 +481,19 @@
   var sysDark = window.matchMedia("(prefers-color-scheme: dark)");
   sysDark.addEventListener ? sysDark.addEventListener("change", render) : sysDark.addListener(render);
 
-  function fail(e) { app.innerHTML = '<p class="a-hint">데이터를 불러오지 못했어요 (' + esc(e && e.message) + ")</p>"; }
-  fetch("data/index.json", { cache: "no-cache" }).then(function (r) {
-    if (!r.ok) throw new Error("HTTP " + r.status);
-    return r.json();
-  }).then(function (d) {
-    D = d;
-    d.companies.forEach(function (c) { CO[c.id] = c; });
-    S.season = d.seasons.length ? d.seasons[0].season : null;
-    if (!S.season) { app.innerHTML = '<p class="a-hint">아직 공개된 인사가 없어요</p>'; return; }
-    return load(S.season).then(render);
-  }).catch(fail);
+  function fail(e) { app.className = ""; app.innerHTML = errorState(e && e.message); }
+  function boot() {
+    app.innerHTML = skeleton();
+    fetch("data/index.json", { cache: "no-cache" }).then(function (r) {
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    }).then(function (d) {
+      D = d;
+      d.companies.forEach(function (c) { CO[c.id] = c; });
+      S.season = d.seasons.length ? d.seasons[0].season : null;
+      if (!S.season) { app.innerHTML = empty("공개된 인사 없음", "아직 공개된 인사가 없어요"); return; }
+      return load(S.season).then(render);
+    }).catch(fail);
+  }
+  boot();
 })();
