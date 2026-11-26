@@ -62,11 +62,17 @@
     return '<div aria-busy="true"><span class="sr">불러오는 중</span><div class="sk sk-title"></div><div class="a-card">' + r + r + r + r +
       '</div><div class="a-card">' + r + r + r + "</div></div>";
   }
-  function errorState(msg) {
-    msg = String(msg || "");
-    msg = /^HTTP \d+/.test(msg) ? "서버 응답 오류 (" + msg + ")" : "네트워크 연결을 확인해 주세요" + (msg ? " (" + msg + ")" : "");
+  // D-T6=A: 오류 원인 → 한글 1줄. 브라우저 원문(Failed to fetch·HTTP 404 등)은 화면에 넣지 않는다(console.warn만)
+  function errorText(e) {
+    var m = String((e && e.message) || ""), n = String((e && e.name) || ""), h = /^HTTP (\d+)/.exec(m);
+    if (h) return h[1] === "404" ? "데이터 파일을 찾지 못했어요" : "서버 응답이 올바르지 않아요 (HTTP " + h[1] + ")";
+    if (n === "SyntaxError" || /JSON/.test(m)) return "데이터 형식을 읽지 못했어요";
+    if (n === "TypeError" || n === "NetworkError" || /NetworkError|Failed to fetch|Load failed/i.test(m)) return "네트워크 연결을 확인해 주세요";
+    return "잠시 후 다시 시도해 주세요";
+  }
+  function errorState(e) {
     return '<div class="a-card st-err" role="alert">' + ms("error", true) + "<b>데이터를 불러오지 못했어요</b><span>" +
-      esc(msg) + '</span><button type="button" class="wbtn tap" data-act="retry">다시 시도</button></div>';
+      esc(errorText(e)) + '</span><button type="button" class="wbtn tap" data-act="retry">다시 시도</button></div>';
   }
 
   // ── 데이터 ────────────────────────────────────────────────────────
@@ -481,7 +487,10 @@
   var sysDark = window.matchMedia("(prefers-color-scheme: dark)");
   sysDark.addEventListener ? sysDark.addEventListener("change", render) : sysDark.addListener(render);
 
-  function fail(e) { app.className = ""; app.innerHTML = errorState(e && e.message); }
+  function fail(e) {
+    if (window.console) console.warn("[인사보드] 데이터 불러오기 실패:", e && e.name, e && e.message);   // 원문은 콘솔에만
+    app.className = ""; app.innerHTML = errorState(e);
+  }
   function boot() {
     app.innerHTML = skeleton();
     fetch("data/index.json", { cache: "no-cache" }).then(function (r) {
